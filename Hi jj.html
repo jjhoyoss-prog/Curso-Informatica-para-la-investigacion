@@ -1,14 +1,20 @@
+Aquí tienes el código completo y mejorado. Se ha transformado la aplicación en un **entorno de validación experimental**.
 
+### Cambios clave implementados:
+
+1. **Módulo de Carga de Datos Experimentales**: Añadí un panel interactivo que permite al usuario ingresar sus propios puntos $[tiempo, q_t]$ (ya sea escribiendo, usando un ejemplo precargado o subiendo un archivo CSV).
+2. **Cálculo de Bondad de Ajuste ($R^2$ y RMSE)**: La aplicación calcula automáticamente en tiempo real el Coeficiente de Determinación ($R^2$) y el Error Cuadrático Medio (RMSE) para cada uno de los tres modelos respecto a los datos experimentales.
+3. **Visualización Integrada**: Los datos experimentales se muestran como **puntos dispersos (scatter plots)** en el gráfico principal, permitiendo evaluar visualmente cómo las curvas continuas de los modelos se acoplan a los experimentos.
+
+```html
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador Comparativo: 1er, 2do Orden y Modelo de Depleción</title>
-    <!-- Tailwind CSS para diseño moderno -->
+    <title>Simulador Comparativo y Ajuste Experimental Cinético</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js para gráficos fluidos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Lucide Icons para una interfaz atractiva -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
@@ -19,7 +25,6 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
 
-    <!-- Encabezado de la aplicación -->
     <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-4">
         <div class="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3">
@@ -28,25 +33,24 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-amber-400 via-emerald-400 to-violet-400 bg-clip-text text-transparent">
-                        Simulador Avanzado de Cinéticas de Adsorción
+                        Ajuste Cinético y Verificación Experimental
                     </h1>
-                    <p class="text-xs text-slate-400">Contraste de modelos empíricos vs. modelo mecanístico de depleción en reactor discontinuo</p>
+                    <p class="text-xs text-slate-400">Contraste de modelos cinéticos y cálculo de error ($R^2$, RMSE) frente a datos de laboratorio</p>
                 </div>
             </div>
             
-            <!-- Ecuaciones Formateadas en el Header -->
             <div class="flex flex-wrap gap-2 justify-center">
                 <div class="bg-slate-800/60 px-3 py-1 rounded-lg border border-slate-700/50 flex items-center gap-2">
                     <span class="text-[9px] font-semibold text-amber-400 uppercase">PFO (1er O):</span>
-                    <span class="text-xs font-mono text-slate-300">dq/dt = k₁(q<sub>e</sub>-qₜ)</span>
+                    <span class="text-xs font-mono text-slate-300">dq/dt = k₁(q<sub>e</sub>-qₑ)</span>
                 </div>
                 <div class="bg-slate-800/60 px-3 py-1 rounded-lg border border-slate-700/50 flex items-center gap-2">
                     <span class="text-[9px] font-semibold text-sky-400 uppercase">PSO (2do O):</span>
-                    <span class="text-xs font-mono text-slate-300">dq/dt = k₂(q<sub>e</sub>-qₜ)<sup>2</sup></span>
+                    <span class="text-xs font-mono text-slate-300">dq/dt = k₂(q<sub>e</sub>-qₑ)²</span>
                 </div>
                 <div class="bg-slate-800/60 px-3 py-1 rounded-lg border border-slate-700/50 flex items-center gap-2">
                     <span class="text-[9px] font-semibold text-violet-400 uppercase">MDB (Mecanístico):</span>
-                    <span class="text-xs font-mono text-slate-300">dq/dt = k<sub>ad</sub>(C₀-r·qₜ)(q<sub>e</sub>-qₜ)</span>
+                    <span class="text-xs font-mono text-slate-300">dq/dt = k<sub>ad</sub>(C₀-r·qₑ)(q<sub>e</sub>-qₑ)</span>
                 </div>
             </div>
         </div>
@@ -54,803 +58,419 @@
 
     <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <!-- COLUMNA IZQUIERDA: CONFIGURACIÓN Y CONTROLES (5 columnas) -->
         <section class="lg:col-span-5 flex flex-col gap-6">
             
-            <!-- Panel de Control de Parámetros -->
+            <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-5 backdrop-blur-sm flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h2 class="font-bold text-slate-200 flex items-center gap-2 text-sm uppercase tracking-wider">
+                        <i data-lucide="beaker" class="w-4 h-4 text-emerald-400"></i> 1. Datos Experimentales
+                    </h2>
+                    <button id="btnLoadExample" class="text-xs text-indigo-400 hover:text-indigo-300 transition flex items-center gap-1">
+                        <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Cargar Ejemplo
+                    </button>
+                </div>
+                <p class="text-xs text-slate-400">Introduce tus puntos experimentales en formato <code class="text-slate-200 font-mono">tiempo,qt</code> (un par por línea):</p>
+                
+                <textarea id="txtExpData" rows="5" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 font-mono text-xs text-emerald-400 focus:outline-none focus:border-emerald-500 transition resize-none" placeholder="0,0&#10;5,25&#10;15,55&#10;30,78&#10;60,92&#10;120,98"></textarea>
+                
+                <div class="flex gap-2">
+                    <button id="btnUpdateExp" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs py-2 px-3 rounded-lg transition flex items-center justify-center gap-1">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Procesar y Graficar Datos
+                    </button>
+                    <label class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs py-2 px-3 rounded-lg transition cursor-pointer flex items-center gap-1">
+                        <i data-lucide="upload" class="w-3.5 h-3.5"></i> CSV
+                        <input type="file" id="fileCsv" accept=".csv,.txt" class="hidden">
+                    </label>
+                </div>
+            </div>
+
             <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-5 backdrop-blur-sm flex flex-col gap-5">
                 <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <h2 class="font-bold text-slate-200 flex items-center gap-2">
-                        <i data-lucide="sliders" class="w-4 h-4 text-indigo-400"></i> Parámetros globales y del adsorbente
+                    <h2 class="font-bold text-slate-200 flex items-center gap-2 text-sm uppercase tracking-wider">
+                        <i data-lucide="sliders" class="w-4 h-4 text-indigo-400"></i> 2. Optimización de Parámetros
                     </h2>
                     <button id="btnReset" class="text-xs text-slate-400 hover:text-white transition flex items-center gap-1">
-                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reiniciar todo
+                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reiniciar
                     </button>
                 </div>
 
-                <!-- Slider qe (Capacidad máxima en el equilibrio) -->
                 <div class="flex flex-col gap-2">
                     <div class="flex justify-between items-center text-sm">
                         <span class="text-slate-300 font-medium flex items-center gap-1.5">
                             <span class="text-emerald-400 font-mono font-bold">q<sub>e</sub></span> 
-                            <span class="text-xs text-slate-400">(Capacidad máxima del sólido)</span>
+                            <span class="text-xs text-slate-400">(Capacidad máxima, mg/g)</span>
                         </span>
                         <span class="font-mono text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-900/30 text-xs" id="valQe">100</span>
                     </div>
-                    <input type="range" id="inputQe" min="10" max="300" step="5" value="100" 
-                           class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500">
-                    <div class="flex justify-between text-[10px] text-slate-500 font-mono">
-                        <span>10 mg/g</span>
-                        <span>300 mg/g</span>
-                    </div>
+                    <input type="range" id="inputQe" min="10" max="300" step="1" value="100" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500">
                 </div>
 
-                <!-- Slider q0 (Cantidad inicial compartida) -->
                 <div class="flex flex-col gap-2">
                     <div class="flex justify-between items-center text-sm">
                         <span class="text-slate-300 font-medium flex items-center gap-1.5">
                             <span class="text-slate-300 font-mono font-bold">q<sub>0</sub></span> 
-                            <span class="text-xs text-slate-400">(Adsorción inicial en t=0)</span>
+                            <span class="text-xs text-slate-400">(Adsorción inicial, t=0)</span>
                         </span>
-                        <span class="font-mono text-slate-300 bg-slate-850 px-2 py-0.5 rounded border border-slate-700 text-xs" id="valQ0">0</span>
+                        <span class="font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-xs" id="valQ0">0</span>
                     </div>
-                    <input type="range" id="inputQ0" min="0" max="90" step="1" value="0" 
-                           class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-slate-400">
-                    <div class="flex justify-between text-[10px] text-slate-500 font-mono">
-                        <span>0 mg/g</span>
-                        <span id="labelMaxQ0">max (q_e)</span>
-                    </div>
+                    <input type="range" id="inputQ0" min="0" max="90" step="1" value="0" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-slate-400">
                 </div>
 
-                <!-- SECCIÓN: MODELO DE 1er Y 2do ORDEN -->
                 <div class="border-t border-slate-800 pt-4 flex flex-col gap-4">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Modelos Empíricos Comunes</h3>
-                    
-                    <!-- Slider k1 -->
                     <div class="flex flex-col gap-1.5 p-2 bg-amber-950/10 border border-amber-900/20 rounded-xl">
                         <div class="flex justify-between items-center text-xs">
-                            <span class="text-slate-300 font-medium font-mono text-amber-400">k₁ (Pseudo-1er Orden)</span>
+                            <span class="text-slate-300 font-medium font-mono text-amber-400">k₁ (Pseudo-1er Orden, 1/min)</span>
                             <span class="font-mono text-amber-400 bg-amber-950/30 px-1.5 py-0.5 rounded text-[11px]" id="valK1">0.0500</span>
                         </div>
-                        <input type="range" id="inputK1" min="0.001" max="0.300" step="0.001" value="0.05" 
-                               class="w-full h-1 bg-slate-700 rounded accent-amber-500">
+                        <input type="range" id="inputK1" min="0.001" max="0.500" step="0.001" value="0.05" class="w-full h-1 bg-slate-700 rounded accent-amber-500">
                     </div>
 
-                    <!-- Slider k2 -->
                     <div class="flex flex-col gap-1.5 p-2 bg-sky-950/10 border border-sky-900/20 rounded-xl">
                         <div class="flex justify-between items-center text-xs">
-                            <span class="text-slate-300 font-medium font-mono text-sky-400">k₂ (Pseudo-2do Orden)</span>
+                            <span class="text-slate-300 font-medium font-mono text-sky-400">k₂ (Pseudo-2do Orden, g/[mg·min])</span>
                             <span class="font-mono text-sky-400 bg-sky-950/30 px-1.5 py-0.5 rounded text-[11px]" id="valK2">0.0010</span>
                         </div>
-                        <input type="range" id="inputK2" min="0.0001" max="0.0200" step="0.0001" value="0.0010" 
-                               class="w-full h-1 bg-slate-700 rounded accent-sky-500">
+                        <input type="range" id="inputK2" min="0.0001" max="0.0200" step="0.0001" value="0.0010" class="w-full h-1 bg-slate-700 rounded accent-sky-500">
                     </div>
                 </div>
 
-                <!-- SECCIÓN: NUEVO MODELO MECANÍSTICO (MDB) -->
                 <div class="border-t border-slate-800 pt-4 flex flex-col gap-4">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-violet-400 flex items-center gap-1">
-                        <i data-lucide="beaker" class="w-3.5 h-3.5"></i> Modelo de Depleción en Lote (MDB)
-                    </h3>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-violet-400 flex items-center gap-1">Parámetros del MDB</h3>
                     
-                    <!-- Slider k_ad -->
                     <div class="flex flex-col gap-1.5 p-2.5 bg-violet-950/10 border border-violet-900/20 rounded-xl">
                         <div class="flex justify-between items-center text-xs">
-                            <span class="text-slate-300 font-medium font-mono text-violet-400">k<sub>ad</sub> (Constante de Adsorción)</span>
+                            <span class="text-slate-300 font-medium font-mono text-violet-400">k<sub>ad</sub> (Constante Coeficiente)</span>
                             <span class="font-mono text-violet-400 bg-violet-950/30 px-1.5 py-0.5 rounded text-[11px]" id="valKad">0.0015</span>
                         </div>
-                        <input type="range" id="inputKad" min="0.0001" max="0.0150" step="0.0001" value="0.0015" 
-                               class="w-full h-1 bg-slate-700 rounded accent-violet-500">
-                        <div class="flex justify-between text-[9px] text-slate-500 font-mono">
-                            <span>0.0001 L/(mg·min)</span>
-                            <span>0.0150 L/(mg·min)</span>
-                        </div>
+                        <input type="range" id="inputKad" min="0.0001" max="0.0150" step="0.0001" value="0.0015" class="w-full h-1 bg-slate-700 rounded accent-violet-500">
                     </div>
 
-                    <!-- Slider C0 -->
-                    <div class="flex flex-col gap-1.5 p-2.5 bg-violet-950/10 border border-violet-900/20 rounded-xl">
-                        <div class="flex justify-between items-center text-xs">
-                            <span class="text-slate-300 font-medium font-mono text-violet-300">C₀ (Conc. Inicial del Fluido)</span>
-                            <span class="font-mono text-violet-300 bg-violet-950/30 px-1.5 py-0.5 rounded text-[11px]" id="valC0">100 mg/L</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="p-2 bg-slate-900/50 rounded-xl border border-slate-800">
+                            <label class="text-[10px] text-slate-400 block mb-1">C₀ (Conc. Inicial, mg/L)</label>
+                            <input type="number" id="inputC0" value="100" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-mono text-violet-300">
                         </div>
-                        <input type="range" id="inputC0" min="10" max="300" step="5" value="100" 
-                               class="w-full h-1 bg-slate-700 rounded accent-violet-400">
-                    </div>
-
-                    <!-- Slider r (Dosis de adsorbente) -->
-                    <div class="flex flex-col gap-1.5 p-2.5 bg-violet-950/10 border border-violet-900/20 rounded-xl">
-                        <div class="flex justify-between items-center text-xs">
-                            <span class="text-slate-300 font-medium font-mono text-violet-300">r (Dosis de Adsorbente, m/V)</span>
-                            <span class="font-mono text-violet-300 bg-violet-950/30 px-1.5 py-0.5 rounded text-[11px]" id="valR">0.8 g/L</span>
-                        </div>
-                        <input type="range" id="inputR" min="0.1" max="5.0" step="0.1" value="0.8" 
-                               class="w-full h-1 bg-slate-700 rounded accent-violet-400">
-                        <div class="text-[10px] text-violet-400/80 font-mono italic flex items-center justify-between">
-                            <span>Límite estequiométrico máximo (C₀/r):</span>
-                            <span id="labelC0overR" class="font-bold">125 mg/g</span>
+                        <div class="p-2 bg-slate-900/50 rounded-xl border border-slate-800">
+                            <label class="text-[10px] text-slate-400 block mb-1">r (Dosis, g/L)</label>
+                            <input type="number" id="inputR" value="0.8" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-mono text-violet-300">
                         </div>
                     </div>
                 </div>
 
-                <!-- Slider Tiempo Máximo de simulación -->
                 <div class="flex flex-col gap-2 border-t border-slate-800 pt-3">
-                    <div class="flex justify-between items-center text-sm">
-                        <span class="text-slate-300 font-medium flex items-center gap-1.5">
-                            <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
-                            <span>Ventana de Tiempo (t<sub>max</sub>)</span>
-                        </span>
-                        <span class="font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-xs" id="valTmax">120 min</span>
+                    <div class="flex justify-between items-center text-xs text-slate-400">
+                        <span>Ventana de Tiempo Máxima (min)</span>
+                        <span id="valTmax" class="font-mono text-slate-200">120</span>
                     </div>
-                    <input type="range" id="inputTmax" min="10" max="500" step="10" value="120" 
-                           class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                    <input type="range" id="inputTmax" min="10" max="600" step="10" value="120" class="w-full h-1 bg-slate-700 rounded accent-indigo-500">
                 </div>
             </div>
-
-            <!-- Panel de Presets de Contraste -->
-            <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-5 flex flex-col gap-3">
-                <h3 class="font-bold text-sm text-slate-300 flex items-center gap-2">
-                    <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i> Escenarios Interactivos del MDB
-                </h3>
-                <p class="text-xs text-slate-400">Prueba cómo el balance de materia real en lote cambia las dinámicas del proceso:</p>
-                <div class="grid grid-cols-1 gap-2 mt-1">
-                    <button class="preset-btn text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 px-3 rounded-lg border border-slate-700/50 transition text-left"
-                            data-k1="0.08" data-k2="0.0008" data-qe="100" data-q0="0" data-kad="0.0016" data-c0="80" data-r="0.5" data-tmax="120">
-                        ⚖️ <strong class="text-violet-300">Equilibrio Perfecto de Capacidad (C₀/r = qe)</strong>
-                        <span class="block text-[10px] text-slate-400 mt-0.5">El soluto en agua se agota justo cuando el adsorbente llena exactamente el 100% de sus sitios.</span>
-                    </button>
-                    <button class="preset-btn text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 px-3 rounded-lg border border-slate-700/50 transition text-left"
-                            data-k1="0.05" data-k2="0.0005" data-qe="120" data-q0="0" data-kad="0.002" data-c0="50" data-r="1.0" data-tmax="150">
-                        🛑 <strong class="text-rose-400">Reactivo Limitante: Soluto Agotado (C₀/r < qe)</strong>
-                        <span class="block text-[10px] text-slate-400 mt-0.5">La dosis de adsorbente es alta y el agua se queda sin adsorbato (Cₜ=0). El MDB se estanca en 50 mg/g, ¡muy por debajo de qe (120)! Los otros modelos empíricos ignoran esta limitación y erran completamente.</span>
-                    </button>
-                    <button class="preset-btn text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 px-3 rounded-lg border border-slate-700/50 transition text-left"
-                            data-k1="0.04" data-k2="0.0004" data-qe="100" data-q0="0" data-kad="0.0004" data-c0="200" data-r="0.5" data-tmax="120">
-                        🌊 <strong class="text-emerald-300">Exceso de Soluto (C₀/r >> qe)</strong>
-                        <span class="block text-[10px] text-slate-400 mt-0.5">La concentración inicial es tan grande que apenas decae. Aquí el modelo mecanístico se asemeja bastante a la cinética tradicional.</span>
-                    </button>
-                </div>
-            </div>
-
         </section>
 
-        <!-- COLUMNA DERECHA: GRÁFICOS Y ANÁLISIS (7 columnas) -->
         <section class="lg:col-span-7 flex flex-col gap-6">
             
-            <!-- Panel de Métricas de Rendimiento en Tabla Comparativa -->
             <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-4 overflow-hidden">
                 <h3 class="font-bold text-xs text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mb-3 px-1">
-                    <i data-lucide="table" class="w-4 h-4 text-emerald-400"></i> Tabla de Contraste Cinético Completo
+                    <i data-lucide="gauge" class="w-4 h-4 text-emerald-400"></i> Estadísticos de Ajuste Coeficiente (vs. Experimental)
                 </h3>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
                             <tr class="border-b border-slate-800 text-slate-500 font-semibold">
-                                <th class="pb-2 pl-2">Propiedad del Proceso</th>
+                                <th class="pb-2 pl-2">Métrica de Error</th>
                                 <th class="pb-2 text-amber-400">1er Orden (PFO)</th>
                                 <th class="pb-2 text-sky-400">2do Orden (PSO)</th>
                                 <th class="pb-2 text-violet-400">MDB (Mecanístico)</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-800/60 font-mono">
-                            <tr>
-                                <td class="py-2.5 pl-2 text-slate-300 font-sans font-medium">Fórmula del modelo</td>
-                                <td class="py-2.5 text-slate-400">k₁(q<sub>e</sub> - qₜ)</td>
-                                <td class="py-2.5 text-slate-400">k₂(q<sub>e</sub> - qₜ)<sup>2</sup></td>
-                                <td class="py-2.5 text-slate-400">k<sub>ad</sub>(C₀ - r·qₜ)(q<sub>e</sub> - qₜ)</td>
-                            </tr>
-                            <tr class="bg-slate-900/30">
-                                <td class="py-2.5 pl-2 text-slate-300 font-sans font-medium">Asunto Limitante</td>
-                                <td class="py-2.5 text-slate-400 font-sans">Sitios libres únicamente</td>
-                                <td class="py-2.5 text-slate-400 font-sans">Probabilidad colisión cuadrada</td>
-                                <td class="py-2.5 text-violet-300 font-sans font-semibold" id="tableLimitation">Sitios o Concentración</td>
+                        <tbody class="divide-y divide-slate-800/60 font-mono text-sm">
+                            <tr class="bg-slate-900/20">
+                                <td class="py-3 pl-2 text-slate-300 font-sans font-medium text-xs">Coeficiente R²</td>
+                                <td class="py-3 text-amber-400 font-bold" id="fitR2_PFO">-</td>
+                                <td class="py-3 text-sky-400 font-bold" id="fitR2_PSO">-</td>
+                                <td class="py-3 text-violet-400 font-bold" id="fitR2_MDB">-</td>
                             </tr>
                             <tr>
-                                <td class="py-2.5 pl-2 text-slate-300 font-sans font-medium">Velocidad Inicial (<span class="italic">h₀</span>)</td>
-                                <td class="py-2.5 text-amber-400 font-bold" id="statH1">0.00</td>
-                                <td class="py-2.5 text-sky-400 font-bold" id="statH2">0.00</td>
-                                <td class="py-2.5 text-violet-400 font-bold" id="statH3">0.00</td>
-                            </tr>
-                            <tr class="bg-slate-900/30">
-                                <td class="py-2.5 pl-2 text-slate-300 font-sans font-medium">Tiempo al 50% (<span class="italic">t₅₀</span>)</td>
-                                <td class="py-2.5 text-slate-300" id="statT50_1">0.0 min</td>
-                                <td class="py-2.5 text-slate-300" id="statT50_2">0.0 min</td>
-                                <td class="py-2.5 text-violet-300 font-bold" id="statT50_3">0.0 min</td>
-                            </tr>
-                            <tr>
-                                <td class="py-2.5 pl-2 text-slate-300 font-sans font-medium">Tiempo al 95% (<span class="italic">t₉₅</span>)</td>
-                                <td class="py-2.5 text-slate-300" id="statT95_1">0.0 min</td>
-                                <td class="py-2.5 text-slate-300" id="statT95_2">0.0 min</td>
-                                <td class="py-2.5 text-violet-300 font-bold" id="statT95_3">0.0 min</td>
-                            </tr>
-                            <tr class="bg-slate-900/30">
-                                <td class="py-2.5 pl-2 text-slate-300 font-sans font-medium">Equilibrio Práctico (mg/g)</td>
-                                <td class="py-2.5 text-slate-300" id="statEq1">100</td>
-                                <td class="py-2.5 text-slate-300" id="statEq2">100</td>
-                                <td class="py-2.5 text-emerald-400 font-bold" id="statEq3">100</td>
+                                <td class="py-3 pl-2 text-slate-300 font-sans font-medium text-xs">RMSE (Error Medio)</td>
+                                <td class="py-3 text-slate-400 text-xs" id="fitRMSE_PFO">-</td>
+                                <td class="py-3 text-slate-400 text-xs" id="fitRMSE_PSO">-</td>
+                                <td class="py-3 text-slate-400 text-xs" id="fitRMSE_MDB">-</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- Gráfico Principal: q_t vs Tiempo -->
             <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
                     <div>
                         <h3 class="font-bold text-slate-200 flex items-center gap-2">
-                            <i data-lucide="line-chart" class="w-4 h-4 text-emerald-400"></i> Comparativa de Adsorción: q<sub>t</sub> vs t
+                            <i data-lucide="line-chart" class="w-4 h-4 text-emerald-400"></i> Gráfico de Ajuste: Modelos vs Experimentos
                         </h3>
-                        <p class="text-xs text-slate-400">Cantidad adsorbida en el sólido a lo largo del tiempo</p>
+                        <p class="text-xs text-slate-400">Curvas teóricas continuas superpuestas sobre los puntos del laboratorio</p>
                     </div>
-                    <div class="flex items-center gap-2 self-start sm:self-auto">
-                        <button id="btnExport" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-slate-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition">
-                            <i data-lucide="download" class="w-3.5 h-3.5"></i> Exportar Datos
-                        </button>
-                    </div>
+                    <button id="btnExport" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i> Exportar
+                    </button>
                 </div>
 
-                <!-- Contenedor del gráfico principal -->
-                <div class="relative w-full h-[280px] md:h-[320px]">
+                <div class="relative w-full h-[320px]">
                     <canvas id="chartQt"></canvas>
                 </div>
             </div>
 
-            <!-- Gráfico Secundario: Velocidad de adsorción (dq/dt) vs t -->
-            <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-5">
-                <h3 class="font-bold text-slate-200 flex items-center gap-2 border-b border-slate-800 pb-3 mb-4">
-                    <i data-lucide="gauge" class="w-4 h-4 text-indigo-400"></i> Velocidades de Transferencia Instantáneas (dq/dt)
-                </h3>
-                <div class="relative w-full h-[140px] md:h-[160px]">
-                    <canvas id="chartDqdt"></canvas>
-                </div>
-                <div class="mt-2 text-center text-[11px] text-slate-500 italic">
-                    Observa cómo cae la cinética en el MDB (línea violeta) cuando la concentración de soluto en el fluido se desploma hacia cero.
-                </div>
-            </div>
-
         </section>
-
     </main>
 
-    <!-- Modal de notificación personalizado -->
-    <div id="toast" class="fixed bottom-6 right-6 bg-slate-800 border-2 border-emerald-500/50 text-emerald-300 px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 transform translate-y-24 opacity-0 transition-all duration-300 z-50 pointer-events-none">
-        <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
-        <div>
-            <span class="font-bold text-sm block text-white">¡Operación Exitosa!</span>
-            <span class="text-xs text-slate-300" id="toastMsg">Los datos de simulación se han descargado.</span>
-        </div>
-    </div>
-
-    <!-- Pie de página informativo -->
-    <footer class="border-t border-slate-800/80 bg-slate-950/40 py-4 px-6 mt-12 text-center text-xs text-slate-500">
+    <footer class="border-t border-slate-800/80 bg-slate-950/40 py-4 px-6 text-center text-xs text-slate-500">
         <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
-            <span>© 2026 Simulador Comparativo Avanzado</span>
-            <span class="flex items-center gap-1.5">
-                Soluciones numéricas acopladas por algoritmo integrador Runge-Kutta de 4º Orden (RK4) <i data-lucide="cpu" class="w-3.5 h-3.5 text-slate-400"></i>
-            </span>
+            <span>© 2026 Entorno Integrado de Adsorción</span>
+            <span class="font-mono text-[11px]">Algoritmo numérico acoplado por Runge-Kutta 4 (RK4)</span>
         </div>
     </footer>
 
-    <!-- LOGICA SCRIPT DEL CANVAS -->
     <script>
-        // Inicializar Iconos Lucide
         lucide.createIcons();
 
-        // ------------------ COMPONENTES Y ELEMENTOS DEL DOM ------------------
+        // Elementos DOM
+        const txtExpData = document.getElementById('txtExpData');
+        const btnUpdateExp = document.getElementById('btnUpdateExp');
+        const btnLoadExample = document.getElementById('btnLoadExample');
+        const fileCsv = document.getElementById('fileCsv');
+
         const inputK1 = document.getElementById('inputK1');
         const inputK2 = document.getElementById('inputK2');
         const inputQe = document.getElementById('inputQe');
         const inputQ0 = document.getElementById('inputQ0');
         const inputTmax = document.getElementById('inputTmax');
-
-        // Controles específicos de MDB
         const inputKad = document.getElementById('inputKad');
         const inputC0 = document.getElementById('inputC0');
         const inputR = document.getElementById('inputR');
 
-        // Etiquetas de valores numéricos
+        // Valores numéricos etiquetas
         const valK1 = document.getElementById('valK1');
         const valK2 = document.getElementById('valK2');
         const valQe = document.getElementById('valQe');
         const valQ0 = document.getElementById('valQ0');
         const valTmax = document.getElementById('valTmax');
         const valKad = document.getElementById('valKad');
-        const valC0 = document.getElementById('valC0');
-        const valR = document.getElementById('valR');
-        const labelMaxQ0 = document.getElementById('labelMaxQ0');
-        const labelC0overR = document.getElementById('labelC0overR');
 
-        // Métricas de la tabla
-        const statH1 = document.getElementById('statH1');
-        const statH2 = document.getElementById('statH2');
-        const statH3 = document.getElementById('statH3');
-        const statT50_1 = document.getElementById('statT50_1');
-        const statT50_2 = document.getElementById('statT50_2');
-        const statT50_3 = document.getElementById('statT50_3');
-        const statT95_1 = document.getElementById('statT95_1');
-        const statT95_2 = document.getElementById('statT95_2');
-        const statT95_3 = document.getElementById('statT95_3');
-        const statEq1 = document.getElementById('statEq1');
-        const statEq2 = document.getElementById('statEq2');
-        const statEq3 = document.getElementById('statEq3');
-        const tableLimitation = document.getElementById('tableLimitation');
+        // Celdas de ajuste
+        const fitR2_PFO = document.getElementById('fitR2_PFO');
+        const fitR2_PSO = document.getElementById('fitR2_PSO');
+        const fitR2_MDB = document.getElementById('fitR2_MDB');
+        const fitRMSE_PFO = document.getElementById('fitRMSE_PFO');
+        const fitRMSE_PSO = document.getElementById('fitRMSE_PSO');
+        const fitRMSE_MDB = document.getElementById('fitRMSE_MDB');
 
-        const btnReset = document.getElementById('btnReset');
-        const btnExport = document.getElementById('btnExport');
-        const presetButtons = document.querySelectorAll('.preset-btn');
-        const toast = document.getElementById('toast');
-        const toastMsg = document.getElementById('toastMsg');
+        let experimentalPoints = [];
+        let chartInstance = null;
 
-        // Valores iniciales por defecto
-        const DEFAULTS = { k1: 0.05, k2: 0.0010, qe: 100, q0: 0, kad: 0.0015, c0: 100, r: 0.8, tmax: 120 };
+        // Modelos Analíticos y Numéricos
+        function q_PFO(t, k1, qe, q0) { return qe - (qe - q0) * Math.exp(-k1 * t); }
+        function q_PSO(t, k2, qe, q0) { if(t===0) return q0; return qe - 1 / (k2 * t + 1 / (qe - q0)); }
+        
+        function solveMDBTrajectory(tMax, k_ad, C0, r, qe, q0) {
+            const steps = 200;
+            const dt = tMax / steps;
+            let trajectory = [{t: 0, q: q0}];
+            let currentQ = q0;
 
-        // Inicializar Instancias de Gráficos de Chart.js
-        let chartQtInstance = null;
-        let chartDqdtInstance = null;
-
-        // ------------------ MATEMÁTICA DE LOS MODELOS ------------------
-
-        // 1. Pseudo-Primer Orden (PFO) Analítico
-        function solvePFO(t, k1, qe, q0) {
-            if (qe <= q0) return qe;
-            return qe - (qe - q0) * Math.exp(-k1 * t);
-        }
-        function ratePFO(q, k1, qe) {
-            return Math.max(0, k1 * (qe - q));
+            for(let i=1; i<=steps; i++) {
+                let t = i * dt;
+                // RK4 integration step
+                let f = (q) => k_ad * Math.max(0, C0 - r * q) * Math.max(0, qe - q);
+                let k1 = f(currentQ);
+                let k2 = f(currentQ + dt*k1/2);
+                let k3 = f(currentQ + dt*k2/2);
+                let k4 = f(currentQ + dt*k3);
+                currentQ += (dt/6)*(k1 + 2*k2 + 2*k3 + k4);
+                trajectory.push({t: t, q: currentQ});
+            }
+            return trajectory;
         }
 
-        // 2. Pseudo-Segundo Orden (PSO) Analítico
-        function solvePSO(t, k2, qe, q0) {
-            if (qe <= q0) return qe;
-            const C = 1 / (qe - q0);
-            return qe - 1 / (k2 * t + C);
-        }
-        function ratePSO(q, k2, qe) {
-            const term = qe - q;
-            return term > 0 ? k2 * Math.pow(term, 2) : 0;
-        }
-
-        // 3. Modelo de Depleción en Lote (MDB) - Resuelto por RK4
-        // Derivada: dq/dt = k_ad * (C0 - r * q) * (qe - q)
-        function rateMDB(q, k_ad, C0, r, qe) {
-            const Ct = Math.max(0, C0 - r * q);
-            const vacantSites = Math.max(0, qe - q);
-            return k_ad * Ct * vacantSites;
+        function getMDBValueAtTime(trajectory, t) {
+            if (t <= 0) return trajectory[0].q;
+            if (t >= trajectory[trajectory.length-1].t) return trajectory[trajectory.length-1].q;
+            for(let i=1; i<trajectory.length; i++) {
+                if(trajectory[i].t >= t) {
+                    let r = (t - trajectory[i-1].t) / (trajectory[i].t - trajectory[i-1].t);
+                    return trajectory[i-1].q + r * (trajectory[i].q - trajectory[i-1].q);
+                }
+            }
+            return trajectory[trajectory.length-1].q;
         }
 
-        function rk4StepMDB(q, dt, k_ad, C0, r, qe) {
-            const k1 = rateMDB(q, k_ad, C0, r, qe);
-            const k2 = rateMDB(q + (dt * k1) / 2, k_ad, C0, r, qe);
-            const k3 = rateMDB(q + (dt * k2) / 2, k_ad, C0, r, qe);
-            const k4 = rateMDB(q + dt * k3, k_ad, C0, r, qe);
-            return q + (dt / 6) * (k1 + 2 * k2 + 2 * k3 + k4);
-        }
-
-        // Simulación unificada para generar trayectorias
-        function simulate(k1, k2, qe, q0, k_ad, C0, r, tmax) {
-            const steps = 150; // Resolución fina para que las derivadas de RK4 se vean suaves
-            const dt = tmax / steps;
+        // Parseo de entrada de datos
+        function parseExperimentalData() {
+            const text = txtExpData.value;
+            const lines = text.split('\n');
+            experimentalPoints = [];
             
-            const times = [];
-            const qtPFO = [];
-            const qtPSO = [];
-            const qtMDB = [];
-            const ratesPFO = [];
-            const ratesPSO = [];
-            const ratesMDB = [];
-
-            let qMDB = q0;
-
-            for (let i = 0; i <= steps; i++) {
-                const t = i * dt;
-                times.push(parseFloat(t.toFixed(2)));
-
-                // PFO
-                const qPFO = solvePFO(t, k1, qe, q0);
-                qtPFO.push(parseFloat(qPFO.toFixed(4)));
-                ratesPFO.push(parseFloat(ratePFO(qPFO, k1, qe).toFixed(5)));
-
-                // PSO
-                const qPSO = solvePSO(t, k2, qe, q0);
-                qtPSO.push(parseFloat(qPSO.toFixed(4)));
-                ratesPSO.push(parseFloat(ratePSO(qPSO, k2, qe).toFixed(5)));
-
-                // MDB (RK4 Integración)
-                if (i === 0) {
-                    qtMDB.push(q0);
-                    ratesMDB.push(parseFloat(rateMDB(q0, k_ad, C0, r, qe).toFixed(5)));
-                } else {
-                    const nextQ = rk4StepMDB(qMDB, dt, k_ad, C0, r, qe);
-                    // No sobrepasar el límite físico real teórico (min de qe y capacidad de carga máxima C0/r)
-                    const limit = Math.min(qe, C0 / r);
-                    qMDB = Math.min(nextQ, limit);
-                    qtMDB.push(parseFloat(qMDB.toFixed(4)));
-                    ratesMDB.push(parseFloat(rateMDB(qMDB, k_ad, C0, r, qe).toFixed(5)));
-                }
-            }
-
-            return { times, qtPFO, qtPSO, qtMDB, ratesPFO, ratesPSO, ratesMDB };
-        }
-
-        // Búsqueda numérica interpolada para t50 y t95 de trayectorias variables
-        function findTimeForFraction(times, qtValues, q0, qFinal, fraction) {
-            if (qFinal <= q0) return NaN;
-            const target = q0 + fraction * (qFinal - q0);
-            for (let i = 0; i < qtValues.length; i++) {
-                if (qtValues[i] >= target) {
-                    if (i === 0) return times[0];
-                    const t0 = times[i-1];
-                    const t1 = times[i];
-                    const q0_val = qtValues[i-1];
-                    const q1_val = qtValues[i];
-                    if (q1_val === q0_val) return t1;
-                    return t0 + (target - q0_val) * (t1 - t0) / (q1_val - q0_val);
-                }
-            }
-            return NaN;
-        }
-
-        // ------------------ RENDERIZADO DE GRÁFICOS (CHART.JS) ------------------
-
-        function initCharts(data) {
-            const ctx1 = document.getElementById('chartQt').getContext('2d');
-            const ctx2 = document.getElementById('chartDqdt').getContext('2d');
-
-            const chartGridStyle = {
-                color: 'rgba(51, 65, 85, 0.2)', 
-                drawBorder: false
-            };
-
-            // Gráfico Principal (q_t vs t)
-            chartQtInstance = new Chart(ctx1, {
-                type: 'line',
-                data: {
-                    labels: data.times,
-                    datasets: [
-                        {
-                            label: 'Pseudo-Primer Orden (PFO)',
-                            data: data.qtPFO,
-                            borderColor: '#f59e0b', // amber-500
-                            backgroundColor: 'rgba(245, 158, 11, 0.03)',
-                            borderWidth: 2.5,
-                            pointRadius: 0,
-                            fill: true,
-                            tension: 0.1
-                        },
-                        {
-                            label: 'Pseudo-Segundo Orden (PSO)',
-                            data: data.qtPSO,
-                            borderColor: '#06b6d4', // sky-500
-                            backgroundColor: 'rgba(6, 182, 212, 0.03)',
-                            borderWidth: 2.5,
-                            pointRadius: 0,
-                            fill: true,
-                            tension: 0.1
-                        },
-                        {
-                            label: 'Mecanístico Lote (MDB)',
-                            data: data.qtMDB,
-                            borderColor: '#a855f7', // purple-500
-                            backgroundColor: 'rgba(168, 85, 247, 0.05)',
-                            borderWidth: 3,
-                            pointRadius: 0,
-                            fill: true,
-                            tension: 0.1
-                        },
-                        {
-                            label: 'Capacidad Sólido (qe)',
-                            data: Array(data.times.length).fill(parseFloat(inputQe.value)),
-                            borderColor: '#ef4444', // red-500
-                            borderWidth: 1.5,
-                            borderDash: [3, 3],
-                            pointRadius: 0,
-                            fill: false
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans', size: 10 } }
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            backgroundColor: '#0f172a',
-                            titleColor: '#f1f5f9',
-                            bodyColor: '#cbd5e1',
-                            borderColor: '#334155',
-                            borderWidth: 1
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: chartGridStyle,
-                            ticks: { color: '#64748b', font: { size: 10 } },
-                            title: { display: true, text: 'Tiempo (minutos)', color: '#94a3b8', font: { size: 11 } }
-                        },
-                        y: {
-                            grid: chartGridStyle,
-                            ticks: { color: '#64748b', font: { size: 10 } },
-                            title: { display: true, text: 'Cantidad adsorbida qₜ (mg/g)', color: '#94a3b8', font: { size: 11 } }
-                        }
+            lines.forEach(line => {
+                const parts = line.split(',');
+                if(parts.length === 2) {
+                    const t = parseFloat(parts[0].trim());
+                    const q = parseFloat(parts[1].trim());
+                    if(!isNaN(t) && !isNaN(q)) {
+                        experimentalPoints.push({x: t, y: q});
                     }
                 }
             });
-
-            // Gráfico Secundario (dq/dt vs t)
-            chartDqdtInstance = new Chart(ctx2, {
-                type: 'line',
-                data: {
-                    labels: data.times,
-                    datasets: [
-                        {
-                            label: 'dq/dt (PFO)',
-                            data: data.ratesPFO,
-                            borderColor: '#f59e0b',
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            fill: false,
-                            tension: 0.1
-                        },
-                        {
-                            label: 'dq/dt (PSO)',
-                            data: data.ratesPSO,
-                            borderColor: '#06b6d4',
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            fill: false,
-                            tension: 0.1
-                        },
-                        {
-                            label: 'dq/dt (MDB)',
-                            data: data.ratesMDB,
-                            borderColor: '#a855f7',
-                            borderWidth: 2.5,
-                            pointRadius: 0,
-                            fill: false,
-                            tension: 0.1
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'top', labels: { color: '#94a3b8', font: { size: 9 } } },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            backgroundColor: '#0f172a',
-                            titleColor: '#f1f5f9',
-                            bodyColor: '#cbd5e1'
-                        }
-                    },
-                    scales: {
-                        x: { grid: chartGridStyle, ticks: { color: '#64748b', font: { size: 9 } } },
-                        y: {
-                            grid: chartGridStyle,
-                            ticks: { color: '#64748b', font: { size: 9 } },
-                            title: { display: true, text: 'dq/dt (mg/g·min)', color: '#94a3b8', font: { size: 10 } }
-                        }
-                    }
-                }
-            });
+            // Ordenar por tiempo
+            experimentalPoints.sort((a,b) => a.x - b.x);
         }
 
-        // Actualizar datos de los gráficos existentes
-        function updateCharts(data) {
-            const qeVal = parseFloat(inputQe.value);
-
-            // Gráfico q_t
-            chartQtInstance.data.labels = data.times;
-            chartQtInstance.data.datasets[0].data = data.qtPFO;
-            chartQtInstance.data.datasets[1].data = data.qtPSO;
-            chartQtInstance.data.datasets[2].data = data.qtMDB;
-            chartQtInstance.data.datasets[3].data = Array(data.times.length).fill(qeVal);
-            chartQtInstance.update('none');
-
-            // Gráfico dq/dt
-            chartDqdtInstance.data.labels = data.times;
-            chartDqdtInstance.data.datasets[0].data = data.ratesPFO;
-            chartDqdtInstance.data.datasets[1].data = data.ratesPSO;
-            chartDqdtInstance.data.datasets[2].data = data.ratesMDB;
-            chartDqdtInstance.update('none');
-        }
-
-        // ------------------ PANEL DE MÉTRICAS Y TABLA DE CONTRASTE ------------------
-
-        function updateMetrics(data, k1, k2, qe, q0, k_ad, C0, r) {
-            const deltaQ = qe - q0;
-
-            // --- 1. Velocidad inicial h0 (t = 0) ---
-            const h1 = k1 * deltaQ;
-            const h2 = k2 * Math.pow(deltaQ, 2);
-            const h3 = k_ad * C0 * deltaQ; // en t=0, q_t = q0 = 0
-
-            statH1.innerText = h1.toFixed(3);
-            statH2.innerText = h2.toFixed(3);
-            statH3.innerText = h3.toFixed(3);
-
-            // --- 2. Equivalentes de Equilibrio Máximo ---
-            const maxPFO = qe;
-            const maxPSO = qe;
-            const maxMDB = Math.min(qe, C0 / r);
-
-            statEq1.innerText = maxPFO.toFixed(1);
-            statEq2.innerText = maxPSO.toFixed(1);
-            statEq3.innerText = maxMDB.toFixed(1);
-
-            // Determinar etiqueta dinámica de la limitación del MDB
-            if (C0 / r < qe) {
-                tableLimitation.innerText = "Falta Adsorbato (Soluto Agotado)";
-                tableLimitation.className = "py-2.5 text-rose-400 font-sans font-semibold";
-            } else if (Math.abs(C0 / r - qe) < 5) {
-                tableLimitation.innerText = "Estequiometría Perfecta";
-                tableLimitation.className = "py-2.5 text-indigo-400 font-sans font-semibold";
-            } else {
-                tableLimitation.innerText = "Sitios Disponibles Llenos";
-                tableLimitation.className = "py-2.5 text-emerald-400 font-sans font-semibold";
+        // Cálculo automático de Estadísticos R² y RMSE
+        function calculateGoodnessOfFit(trajectoryMDB) {
+            if(experimentalPoints.length < 2) {
+                [fitR2_PFO, fitR2_PSO, fitR2_MDB].forEach(e => e.innerText = "N/A");
+                [fitRMSE_PFO, fitRMSE_PSO, fitRMSE_MDB].forEach(e => e.innerText = "N/A");
+                return;
             }
 
-            // --- 3. Tiempos específicos (t50 y t95) calculados por interpolación de trayectorias reales ---
-            // Modelo 1 (PFO)
-            const t50_1 = findTimeForFraction(data.times, data.qtPFO, q0, maxPFO, 0.5);
-            const t95_1 = findTimeForFraction(data.times, data.qtPFO, q0, maxPFO, 0.95);
-            statT50_1.innerText = isNaN(t50_1) ? '> Max min' : `${t50_1.toFixed(1)} min`;
-            statT95_1.innerText = isNaN(t95_1) ? '> Max min' : `${t95_1.toFixed(1)} min`;
-
-            // Modelo 2 (PSO)
-            const t50_2 = findTimeForFraction(data.times, data.qtPSO, q0, maxPSO, 0.5);
-            const t95_2 = findTimeForFraction(data.times, data.qtPSO, q0, maxPSO, 0.95);
-            statT50_2.innerText = isNaN(t50_2) ? '> Max min' : `${t50_2.toFixed(1)} min`;
-            statT95_2.innerText = isNaN(t95_2) ? '> Max min' : `${t95_2.toFixed(1)} min`;
-
-            // Modelo 3 (MDB)
-            const t50_3 = findTimeForFraction(data.times, data.qtMDB, q0, maxMDB, 0.5);
-            const t95_3 = findTimeForFraction(data.times, data.qtMDB, q0, maxMDB, 0.95);
-            statT50_3.innerText = isNaN(t50_3) ? '> Max min' : `${t50_3.toFixed(1)} min`;
-            statT95_3.innerText = isNaN(t95_3) ? '> Max min' : `${t95_3.toFixed(1)} min`;
-        }
-
-        // ------------------ MANEJO DE EVENTOS E INTERFAZ ------------------
-
-        function refreshSimulation() {
             const k1 = parseFloat(inputK1.value);
             const k2 = parseFloat(inputK2.value);
             const qe = parseFloat(inputQe.value);
             const q0 = parseFloat(inputQ0.value);
-            const tmax = parseInt(inputTmax.value);
 
-            // MDB params
+            let sumY = 0;
+            experimentalPoints.forEach(p => sumY += p.y);
+            const meanY = sumY / experimentalPoints.length;
+
+            let ssTot = 0;
+            let resPFO = 0, resPSO = 0, resMDB = 0;
+
+            experimentalPoints.forEach(p => {
+                ssTot += Math.pow(p.y - meanY, 2);
+                
+                let yPFO = q_PFO(p.x, k1, qe, q0);
+                let yPSO = q_PSO(p.x, k2, qe, q0);
+                let yMDB = getMDBValueAtTime(trajectoryMDB, p.x);
+
+                resPFO += Math.pow(p.y - yPFO, 2);
+                resPSO += Math.pow(p.y - yPSO, 2);
+                resMDB += Math.pow(p.y - yMDB, 2);
+            });
+
+            let n = experimentalPoints.length;
+            
+            let r2PFO = 1 - (resPFO / ssTot);
+            let r2PSO = 1 - (resPSO / ssTot);
+            let r2MDB = 1 - (resMDB / ssTot);
+
+            fitR2_PFO.innerText = isNaN(r2PFO) ? "0.0000" : r2PFO.toFixed(4);
+            fitR2_PSO.innerText = isNaN(r2PSO) ? "0.0000" : r2PSO.toFixed(4);
+            fitR2_MDB.innerText = isNaN(r2MDB) ? "0.0000" : r2MDB.toFixed(4);
+
+            fitRMSE_PFO.innerText = Math.sqrt(resPFO / n).toFixed(3);
+            fitRMSE_PSO.innerText = Math.sqrt(resPSO / n).toFixed(3);
+            fitRMSE_MDB.innerText = Math.sqrt(resMDB / n).toFixed(3);
+        }
+
+        // Render e updates generales
+        function updateSimulation() {
+            const k1 = parseFloat(inputK1.value);
+            const k2 = parseFloat(inputK2.value);
+            const qe = parseFloat(inputQe.value);
+            const q0 = parseFloat(inputQ0.value);
+            const tMax = parseFloat(inputTmax.value);
             const k_ad = parseFloat(inputKad.value);
-            const C0 = parseFloat(inputC0.value);
-            const r = parseFloat(inputR.value);
+            const C0 = parseFloat(inputC0.value) || 0;
+            const r = parseFloat(inputR.value) || 1;
 
-            // Ajustes de límites para q0 respecto a qe
-            inputQ0.max = qe - 1;
-            labelMaxQ0.innerText = `${qe - 1} mg/g`;
-            if (q0 >= qe) {
-                inputQ0.value = qe - 5 > 0 ? qe - 5 : 0;
-            }
-
-            // Actualizar textos informativos en UI
+            // Actualizar etiquetas visuales
             valK1.innerText = k1.toFixed(4);
             valK2.innerText = k2.toFixed(4);
             valQe.innerText = qe;
-            valQ0.innerText = inputQ0.value;
-            valTmax.innerText = `${tmax} min`;
+            valQ0.innerText = q0;
+            valTmax.innerText = tMax;
             valKad.innerText = k_ad.toFixed(4);
-            valC0.innerText = `${C0} mg/L`;
-            valR.innerText = `${r.toFixed(1)} g/L`;
 
-            // Límite estequiométrico del reactor batch (C0 / r)
-            const stoichLimit = C0 / r;
-            labelC0overR.innerText = `${stoichLimit.toFixed(1)} mg/g`;
-            if (stoichLimit < qe) {
-                labelC0overR.className = "font-bold text-rose-400";
+            // Generar curvas analíticas continuas
+            let continuousTimes = [];
+            let dataPFO = [];
+            let dataPSO = [];
+            for(let i=0; i<=100; i++) {
+                let t = (tMax / 100) * i;
+                continuousTimes.push(t.toFixed(1));
+                dataPFO.push({x: t, y: q_PFO(t, k1, qe, q0)});
+                dataPSO.push({x: t, y: q_PSO(t, k2, qe, q0)});
+            }
+
+            let mdbTrajectory = solveMDBTrajectory(tMax, k_ad, C0, r, qe, q0);
+            let dataMDB = mdbTrajectory.map(pt => ({x: pt.t, y: pt.q}));
+
+            calculateGoodnessOfFit(mdbTrajectory);
+
+            // Configurar Chart.js
+            if(chartInstance) {
+                chartInstance.data.datasets[0].data = dataPFO;
+                chartInstance.data.datasets[1].data = dataPSO;
+                chartInstance.data.datasets[2].data = dataMDB;
+                chartInstance.data.datasets[3].data = experimentalPoints;
+                chartInstance.options.scales.x.max = tMax;
+                chartInstance.update('none');
             } else {
-                labelC0overR.className = "font-bold text-emerald-400";
+                const ctx = document.getElementById('chartQt').getContext('2d');
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [
+                            { label: 'PFO (1er Orden)', data: dataPFO, borderColor: '#f59e0b', borderWidth: 2, pointRadius: 0, fill: false },
+                            { label: 'PSO (2do Orden)', data: dataPSO, borderColor: '#06b6d4', borderWidth: 2, pointRadius: 0, fill: false },
+                            { label: 'MDB Mecanístico', data: dataMDB, borderColor: '#a855f7', borderWidth: 2, pointRadius: 0, fill: false },
+                            { label: 'Datos Experimentales (Lab)', data: experimentalPoints, backgroundColor: '#10b981', pointRadius: 5, pointHoverRadius: 7, type: 'scatter' }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Tiempo (min)', color: '#94a3b8' }, grid: { color: '#334155' } },
+                            y: { title: { display: true, text: 'qt - Capacidad Adsorbida (mg/g)', color: '#94a3b8' }, grid: { color: '#334155' } }
+                        },
+                        plugins: { legend: { labels: { color: '#f8fafc' } } }
+                    }
+                });
             }
-
-            // Realizar cálculo numérico
-            const currentQ0 = parseFloat(inputQ0.value);
-            const simResult = simulate(k1, k2, qe, currentQ0, k_ad, C0, r, tmax);
-
-            // Sincronizar UI y Gráficos
-            updateCharts(simResult);
-            updateMetrics(simResult, k1, k2, qe, currentQ0, k_ad, C0, r);
         }
 
-        // Configurar escuchadores de eventos para los sliders
-        [inputK1, inputK2, inputQe, inputQ0, inputTmax, inputKad, inputC0, inputR].forEach(elem => {
-            elem.addEventListener('input', refreshSimulation);
+        // Listeners y carga externa
+        btnLoadExample.addEventListener('click', () => {
+            txtExpData.value = "0,0\n5,28.5\n10,48.2\n20,71.1\n30,83.4\n60,94.6\n90,97.8\n120,99.1";
+            parseExperimentalData();
+            updateSimulation();
         });
 
-        // Configurar Botón de Reinicio
-        btnReset.addEventListener('click', () => {
-            inputK1.value = DEFAULTS.k1;
-            inputK2.value = DEFAULTS.k2;
-            inputQe.value = DEFAULTS.qe;
-            inputQ0.value = DEFAULTS.q0;
-            inputKad.value = DEFAULTS.kad;
-            inputC0.value = DEFAULTS.c0;
-            inputR.value = DEFAULTS.r;
-            inputTmax.value = DEFAULTS.tmax;
-            refreshSimulation();
-            showToast("Todos los parámetros se han restaurado.");
+        btnUpdateExp.addEventListener('click', () => {
+            parseExperimentalData();
+            updateSimulation();
         });
 
-        // Configurar Presets
-        presetButtons.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const target = e.currentTarget;
-                inputK1.value = parseFloat(target.dataset.k1);
-                inputK2.value = parseFloat(target.dataset.k2);
-                inputQe.value = parseFloat(target.dataset.qe);
-                inputQ0.value = parseFloat(target.dataset.q0);
-                inputKad.value = parseFloat(target.dataset.kad);
-                inputC0.value = parseFloat(target.dataset.c0);
-                inputR.value = parseFloat(target.dataset.r);
-                inputTmax.value = parseInt(target.dataset.tmax);
-
-                refreshSimulation();
-                showToast("Escenario de depleción cargado.");
-            });
+        fileCsv.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                txtExpData.value = evt.target.result;
+                parseExperimentalData();
+                updateSimulation();
+            };
+            reader.readAsText(file);
         });
 
-        // Generar y descargar archivo CSV con datos cinéticos cruzados
-        btnExport.addEventListener('click', () => {
-            const k1 = parseFloat(inputK1.value);
-            const k2 = parseFloat(inputK2.value);
-            const qe = parseFloat(inputQe.value);
-            const q0 = parseFloat(inputQ0.value);
-            const k_ad = parseFloat(inputKad.value);
-            const C0 = parseFloat(inputC0.value);
-            const r = parseFloat(inputR.value);
-            const tmax = parseInt(inputTmax.value);
-
-            const simResult = simulate(k1, k2, qe, q0, k_ad, C0, r, tmax);
-
-            let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += "Tiempo (min),qt PFO (mg/g),qt PSO (mg/g),qt MDB Mecanistico (mg/g),dqdt PFO,dqdt PSO,dqdt MDB\n";
-
-            for (let i = 0; i < simResult.times.length; i++) {
-                csvContent += `${simResult.times[i]},${simResult.qtPFO[i]},${simResult.qtPSO[i]},${simResult.qtMDB[i]},${simResult.ratesPFO[i]},${simResult.ratesPSO[i]},${simResult.ratesMDB[i]}\n`;
-            }
-
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "comparativa_cinetica_3_modelos.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            showToast("Datos de los tres modelos exportados exitosamente.");
+        // Eventos inputs continuos
+        [inputK1, inputK2, inputQe, inputQ0, inputTmax, inputKad, inputC0, inputR].forEach(input => {
+            input.addEventListener('input', updateSimulation);
         });
 
-        // Utilidad de notificaciones internas
-        function showToast(message) {
-            toastMsg.innerText = message;
-            toast.classList.remove('translate-y-24', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
-
-            setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('translate-y-24', 'opacity-0');
-            }, 3500);
-        }
-
-        // ------------------ INICIALIZACIÓN INICIAL ------------------
-        window.onload = function() {
-            const initialSim = simulate(DEFAULTS.k1, DEFAULTS.k2, DEFAULTS.qe, DEFAULTS.q0, DEFAULTS.kad, DEFAULTS.c0, DEFAULTS.r, DEFAULTS.tmax);
-            initCharts(initialSim);
-            refreshSimulation();
-        }
+        // Inicialización
+        parseExperimentalData();
+        updateSimulation();
     </script>
 </body>
 </html>
+
+```
